@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:glow_fix/core/widgets/top_app_bar.dart';
 import '../../core/values/app_colors.dart';
 import 'chats_controller.dart';
+import 'provider_chat_view.dart';
 
 class ChatsView extends GetView<ChatsController> {
   const ChatsView({super.key});
@@ -9,196 +11,268 @@ class ChatsView extends GetView<ChatsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-        title: const Padding(
-          padding: EdgeInsets.only(left: 8.0),
-          child: Text(
-            'Inbox',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded, color: AppColors.textDark),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded, color: AppColors.textDark),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
+      backgroundColor: AppColors.chatBackground,
       body: SafeArea(
-        child: ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
           children: [
-            _buildChatThread(
-              name: 'Sarah Connor (La Maison)',
-              message: 'Hello! Your booking for tomorrow is confirmed.',
-              time: '10:45 AM',
-              unreadCount: 1,
-              imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+            const MyTopAppBar(),
+            // Search / Filter Input
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Container(
+                height: 49,
+                decoration: BoxDecoration(
+                  color: AppColors.chatInputBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.chatBorderColor,
+                    width: 1,
+                  ),
+                ),
+                child: TextField(
+                  controller: controller.searchController,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    color: AppColors.textDark,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Search conversations...',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      color: Color(0xFF6B7280),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: AppColors.chatBorderColor,
+                      size: 20,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+              ),
             ),
-            _buildChatThread(
-              name: 'Alex Rivera (Serene Oasis)',
-              message: 'Could we adjust your therapeutic massage to 2:30 PM?',
-              time: '9:12 AM',
-              unreadCount: 1,
-              imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+
+            // Conversations List
+            Expanded(
+              child: Obx(() {
+                final threads = controller.filteredThreads;
+                if (threads.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 48,
+                          color: AppColors.textMuted.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No conversations found',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 16,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: threads.length,
+                  itemBuilder: (context, index) {
+                    final thread = threads[index];
+                    return _buildChatThread(context, thread);
+                  },
+                );
+              }),
             ),
-            _buildChatThread(
-              name: 'Support Team',
-              message: 'We hope you enjoyed your haircut at Glamour Cut!',
-              time: 'Yesterday',
-              unreadCount: 0,
-              imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildChatThread({
-    required String name,
-    required String message,
-    required String time,
-    required int unreadCount,
-    required String imageUrl,
-  }) {
-    final hasUnread = unreadCount > 0;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.01),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                // Avatar with online status or layout
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundColor: AppColors.primary.withOpacity(0.1),
-                      backgroundImage: NetworkImage(imageUrl),
-                      onBackgroundImageError: (exception, stackTrace) {},
-                    ),
-                    if (hasUnread)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
+  Widget _buildChatThread(BuildContext context, ChatThread thread) {
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              controller.markAsRead(thread.id);
+              // Navigate to the Chat Detail view (Figma screen 2)
+              Get.to(
+                () => const ProviderChatView(),
+                transition: Transition.rightToLeft,
+                duration: const Duration(milliseconds: 250),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 16.0,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Avatar with customizable border and online status
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.chatBorderColor,
+                            width: 1,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(1.0),
                         child: Container(
-                          width: 14,
-                          height: 14,
                           decoration: BoxDecoration(
-                            color: Colors.green,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            image: DecorationImage(
+                              image: NetworkImage(thread.imageUrl),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 15,
-                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
-                              color: AppColors.textDark,
-                            ),
-                          ),
-                          Text(
-                            time,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 11,
-                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-                              color: hasUnread ? AppColors.primary : AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 13,
-                                color: hasUnread ? AppColors.textDark : AppColors.textMuted,
-                                fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
+                      if (thread.isOnline)
+                        Positioned(
+                          right: -1,
+                          bottom: -1,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.chatStatusGreen,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.chatBackground,
+                                width: 2,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (hasUnread)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Text and message body
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title & Time Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Expanded(
                               child: Text(
-                                '$unreadCount',
+                                thread.name,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                  color: Color(0xFF191B23),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Obx(
+                              () => Text(
+                                thread.time.value,
                                 style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.inactiveLabel,
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Message snippet & Unread count
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Obx(
+                                () => Text(
+                                  thread.message.value,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.inactiveLabel,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+
+                            // Unread pill badge
+                            Obx(() {
+                              final count = thread.unreadCount.value;
+                              if (count <= 0) return const SizedBox.shrink();
+                              return Container(
+                                margin: const EdgeInsets.only(left: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.chatBubbleUser,
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
+
+        // Item bottom divider border bottom: 1px solid #C3C6D7
+        Padding(
+          padding: const EdgeInsets.only(left: 92.0, right: 20.0),
+          child: Container(
+            height: 1,
+            color: AppColors.chatBorderColor.withOpacity(0.5),
+          ),
+        ),
+      ],
     );
   }
 }
